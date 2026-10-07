@@ -1,8 +1,10 @@
-package lab01;
 import javax.swing.*;
+import javax.swing.colorchooser.AbstractColorChooserPanel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.ArrayList;
+import java.util.List;
 
 public class MainFrame extends JFrame {
 
@@ -34,19 +36,19 @@ public class MainFrame extends JFrame {
     private void initComponents() {
         colorView = new ColorView();
 
-        rgbPanel = new ModelPanel("RGB (0..255)", 
-                new String[]{"R:", "G:", "B:"}, 
-                new double[]{0, 0, 0}, 
+        rgbPanel = new ModelPanel("RGB (0..255)",
+                new String[]{"R:", "G:", "B:"},
+                new double[]{0, 0, 0},
                 new double[]{255, 255, 255});
 
-        cmykPanel = new ModelPanel("CMYK (0..100%)", 
-                new String[]{"C:", "M:", "Y:", "K:"}, 
-                new double[]{0, 0, 0, 0}, 
+        cmykPanel = new ModelPanel("CMYK (0..100%)",
+                new String[]{"C:", "M:", "Y:", "K:"},
+                new double[]{0, 0, 0, 0},
                 new double[]{100, 100, 100, 100});
 
-        hsvPanel = new ModelPanel("HSV (0..360°, 0..100%)", 
-                new String[]{"H:", "S:", "V:"}, 
-                new double[]{0, 0, 0}, 
+        hsvPanel = new ModelPanel("HSV (0..360°, 0..100%)",
+                new String[]{"H:", "S:", "V:"},
+                new double[]{0, 0, 0},
                 new double[]{360, 100, 100});
 
         JPanel modelsContainer = new JPanel(new GridLayout(1, 3, 10, 0));
@@ -60,7 +62,6 @@ public class MainFrame extends JFrame {
     }
 
     private void setupListeners() {
-        // Подписываемся на изменения самой модели
         model.addListener((m) -> {
             if (isSelfUpdating) return;
             isSelfUpdating = true;
@@ -73,7 +74,6 @@ public class MainFrame extends JFrame {
             isSelfUpdating = false;
         });
 
-        // Слушатели панелей ввода
         rgbPanel.setOnValuesChanged(vals -> {
             if (isSelfUpdating) return;
             model.setRgb(vals);
@@ -89,19 +89,79 @@ public class MainFrame extends JFrame {
             model.setHsv(vals);
         });
 
-        // Кнопка палитры (JColorChooser)
         colorView.getChooseColorBtn().addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                Color selectedColor = JColorChooser.showDialog(
-                        MainFrame.this, 
-                        "Выберите цвет", 
-                        model.getAwtColor()
-                );
-                if (selectedColor != null) {
-                    model.setRgb(new double[]{selectedColor.getRed(), selectedColor.getGreen(), selectedColor.getBlue()});
-                }
+                openJavaColorChooser();
             }
         });
+    }
+
+    private void openJavaColorChooser() {
+        final double[] currentHsv = model.getHsv();
+
+        // Остаётся именно стандартный Swing JColorChooser.
+        final JColorChooser chooser = new JColorChooser(model.getAwtColor());
+
+        // Стандартная Java HSV-панель сначала получает H=0 для чистого красного.
+        // Если в нашей модели был H=360, возвращаем 360 штатному HSV-слайдеру.
+        setJavaChooserHue(chooser, currentHsv[0]);
+
+        ActionListener okListener = e -> {
+            Color selectedColor = chooser.getColor();
+            if (selectedColor != null) {
+                model.setRgb(new double[]{
+                        selectedColor.getRed(),
+                        selectedColor.getGreen(),
+                        selectedColor.getBlue()
+                });
+            }
+        };
+
+        JDialog dialog = JColorChooser.createDialog(
+                this,
+                "Выберите цвет",
+                true,
+                chooser,
+                okListener,
+                null
+        );
+
+        dialog.setVisible(true);
+    }
+
+    private void setJavaChooserHue(JColorChooser chooser, double hue) {
+        if (Math.abs(hue - 360.0) > 0.001 && Math.abs(hue) > 0.001) {
+            return;
+        }
+
+        for (AbstractColorChooserPanel panel : chooser.getChooserPanels()) {
+            if (!"HSV".equalsIgnoreCase(panel.getDisplayName())) {
+                continue;
+            }
+
+            List<JSlider> sliders = new ArrayList<>();
+            collectSliders(panel, sliders);
+
+            
+            if (!sliders.isEmpty()
+                    && sliders.get(0).getMinimum() == 0
+                    && sliders.get(0).getMaximum() == 360) {
+                sliders.get(0).setValue(hue >= 359.999 ? 360 : 0);
+            }
+            return;
+        }
+    }
+
+    private void collectSliders(Component component, List<JSlider> result) {
+        if (component instanceof JSlider) {
+            result.add((JSlider) component);
+        }
+
+        if (component instanceof Container) {
+            for (Component child : ((Container) component).getComponents()) {
+                collectSliders(child, result);
+            }
+        }
     }
 }

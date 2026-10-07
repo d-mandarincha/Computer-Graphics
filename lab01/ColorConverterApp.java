@@ -1,4 +1,3 @@
-package lab01;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 

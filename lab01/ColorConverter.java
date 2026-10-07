@@ -1,4 +1,3 @@
-package lab01;
 public class ColorConverter {
 
     public static double[] rgbToHsv(double[] rgb) {

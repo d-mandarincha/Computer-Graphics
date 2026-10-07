@@ -1,4 +1,3 @@
-package lab01;
 import java.awt.Color;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,7 +33,14 @@ public class ColorModel {
         this.rgb[2] = Math.max(0, Math.min(255, rgb[2]));
 
         this.cmyk = ColorConverter.rgbToCmyk(this.rgb);
-        this.hsv = ColorConverter.rgbToHsv(this.rgb);
+        double oldHue = this.hsv[0];
+        double[] newHsv = ColorConverter.rgbToHsv(this.rgb);
+
+        if (newHsv[0] == 0 && Math.abs(oldHue - 360.0) < 0.001) {
+            newHsv[0] = 360.0;
+        }
+
+        this.hsv = newHsv;
         notifyListeners();
     }
 
