@@ -100,24 +100,43 @@ public class MainFrame extends JFrame {
     private void openJavaColorChooser() {
         final double[] currentHsv = model.getHsv();
 
-        // Остаётся именно стандартный Swing JColorChooser.
         final JColorChooser chooser = new JColorChooser(model.getAwtColor());
 
-        // Стандартная Java HSV-панель сначала получает H=0 для чистого красного.
-        // Если в нашей модели был H=360, возвращаем 360 штатному HSV-слайдеру.
         setJavaChooserHue(chooser, currentHsv[0]);
+        setJavaChooserCmyk(chooser, model.getCmyk());
 
         ActionListener okListener = e -> {
             Color selectedColor = chooser.getColor();
-            if (selectedColor != null) {
+            if (selectedColor == null) {
+                return;
+            }
+
+            String selectedPanel = "";
+
+            for (AbstractColorChooserPanel panel : chooser.getChooserPanels()) {
+                if (panel.isShowing()) {
+                    selectedPanel = panel.getDisplayName();
+                    break;
+                }
+            }
+
+            switch (selectedPanel) {
+            case "CMYK":
+                model.setCmyk(getJavaChooserCmyk(chooser));
+                break;
+            case "HSV":
+                model.setHsv(getJavaChooserHSV(chooser));
+                break;
+            default:
                 model.setRgb(new double[]{
-                        selectedColor.getRed(),
-                        selectedColor.getGreen(),
-                        selectedColor.getBlue()
+                    selectedColor.getRed(),
+                    selectedColor.getGreen(),
+                    selectedColor.getBlue()
                 });
+                break;
             }
         };
-
+        
         JDialog dialog = JColorChooser.createDialog(
                 this,
                 "Выберите цвет",
@@ -130,11 +149,66 @@ public class MainFrame extends JFrame {
         dialog.setVisible(true);
     }
 
-    private void setJavaChooserHue(JColorChooser chooser, double hue) {
-        if (Math.abs(hue - 360.0) > 0.001 && Math.abs(hue) > 0.001) {
-            return;
+
+private double[] getJavaChooserHSV(JColorChooser chooser){
+    for (AbstractColorChooserPanel panel : chooser.getChooserPanels()) {
+        if (!"HSV".equalsIgnoreCase(panel.getDisplayName())) {
+            continue;
         }
 
+        List<JSlider> sliders = new ArrayList<>();
+        collectSliders(panel, sliders);
+
+        return new double[]{
+            sliders.get(0).getValue(),
+            sliders.get(1).getValue() * 100.0 / 255,
+            sliders.get(2).getValue() * 100.0 / 255,
+        };
+    }
+
+    return model.getHsv();
+}
+
+    
+private double[] getJavaChooserCmyk(JColorChooser chooser){
+    for (AbstractColorChooserPanel panel : chooser.getChooserPanels()) {
+        if (!"CMYK".equalsIgnoreCase(panel.getDisplayName())) {
+            continue;
+        }
+
+        List<JSlider> sliders = new ArrayList<>();
+        collectSliders(panel, sliders);
+
+        return new double[]{
+            sliders.get(0).getValue() * 100.0 / 255,
+            sliders.get(1).getValue() * 100.0 / 255,
+            sliders.get(2).getValue() * 100.0 / 255,
+            sliders.get(3).getValue() * 100.0 / 255
+        };
+    }
+
+    return model.getCmyk();
+}
+    
+private void setJavaChooserCmyk(JColorChooser chooser, double[] cmyk) {
+    for (AbstractColorChooserPanel panel : chooser.getChooserPanels()) {
+        if (!"CMYK".equalsIgnoreCase(panel.getDisplayName())) {
+            continue;
+        }
+
+        List<JSlider> sliders = new ArrayList<>();
+        collectSliders(panel, sliders);
+        for (int i = 0; i < 4; i++) {
+            int value = (int) Math.round(cmyk[i] * 255 / 100.0);
+            sliders.get(i).setValue(value);
+        }
+
+        return;
+    }
+
+}
+
+    private void setJavaChooserHue(JColorChooser chooser, double hue) {
         for (AbstractColorChooserPanel panel : chooser.getChooserPanels()) {
             if (!"HSV".equalsIgnoreCase(panel.getDisplayName())) {
                 continue;
@@ -142,13 +216,7 @@ public class MainFrame extends JFrame {
 
             List<JSlider> sliders = new ArrayList<>();
             collectSliders(panel, sliders);
-
-            
-            if (!sliders.isEmpty()
-                    && sliders.get(0).getMinimum() == 0
-                    && sliders.get(0).getMaximum() == 360) {
-                sliders.get(0).setValue(hue >= 359.999 ? 360 : 0);
-            }
+            sliders.get(0).setValue(hue >= 359 ? 360 : 0);         
             return;
         }
     }
